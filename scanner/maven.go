@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type MavenParser struct{}
@@ -20,24 +21,17 @@ func (m *MavenParser) Update(path string, deps []Dependency) error {
 		return err
 	}
 
-	var pom pomXML
-	if err := xml.Unmarshal(data, &pom); err != nil {
-		return err
-	}
+	content := string(data)
+	changed := false
 
-	depMap := make(map[string]string)
 	for _, d := range deps {
 		if d.Latest == "unknown" || d.Latest == "" {
 			continue
 		}
-		depMap[d.Name] = d.Latest
-	}
-
-	changed := false
-	for i, dep := range pom.Dependencies {
-		key := fmt.Sprintf("%s:%s", dep.GroupID, dep.ArtifactID)
-		if latest, ok := depMap[key]; ok {
-			pom.Dependencies[i].Version = latest
+		old := fmt.Sprintf(`<version>%s</version>`, d.Version)
+		new := fmt.Sprintf(`<version>%s</version>`, d.Latest)
+		if strings.Contains(content, old) {
+			content = strings.ReplaceAll(content, old, new)
 			changed = true
 		}
 	}
@@ -46,12 +40,7 @@ func (m *MavenParser) Update(path string, deps []Dependency) error {
 		return nil
 	}
 
-	out, err := xml.MarshalIndent(pom, "", "  ")
-	if err != nil {
-		return err
-	}
-	out = append([]byte(`<?xml version="1.0" encoding="UTF-8"?>`+"\n"), out...)
-	return os.WriteFile(path, out, 0644)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 type pomXML struct {

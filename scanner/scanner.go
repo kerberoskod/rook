@@ -2,8 +2,10 @@ package scanner
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type Dependency struct {
@@ -43,22 +45,31 @@ func (s *Scanner) Scan(root string) ([]Dependency, error) {
 	var all []Dependency
 
 	for _, p := range s.parsers {
-		pattern := filepath.Join(root, p.Glob())
-		matches, err := filepath.Glob(pattern)
-		if err != nil {
-			continue
-		}
-		for _, match := range matches {
-			deps, err := p.Parse(match)
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to parse %s: %v\n", match, err)
-				continue
+				return err
+			}
+			matched, err := filepath.Match(p.Glob(), d.Name())
+			if err != nil {
+				return err
+			}
+			if !matched {
+				return nil
+			}
+			deps, err := p.Parse(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to parse %s: %v\n", path, err)
+				return nil
 			}
 			for i := range deps {
 				deps[i].Manager = p.Name()
-				deps[i].File = match
+				deps[i].File = path
 			}
 			all = append(all, deps...)
+			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: error walking %s: %v\n", root, err)
 		}
 	}
 
@@ -67,19 +78,29 @@ func (s *Scanner) Scan(root string) ([]Dependency, error) {
 
 func (s *Scanner) CheckUpdates(deps []Dependency) ([]Dependency, error) {
 	result := make([]Dependency, len(deps))
+	sem := make(chan struct{}, 5)
+	var wg sync.WaitGroup
 
 	for i, d := range deps {
-		result[i] = d
-		latest, err := fetchLatestVersion(d)
-		if err != nil {
-			result[i].Latest = "unknown"
-			result[i].Outdated = false
-			continue
-		}
-		result[i].Latest = latest
-		result[i].Outdated = normalizeVersion(d.Version) != normalizeVersion(latest)
+		wg.Add(1)
+		go func(i int, d Dependency) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result[i] = d
+			latest, err := fetchLatestVersion(d)
+			if err != nil {
+				result[i].Latest = "unknown"
+				result[i].Outdated = false
+				return
+			}
+			result[i].Latest = latest
+			result[i].Outdated = normalizeVersion(d.Version) != normalizeVersion(latest)
+		}(i, d)
 	}
 
+	wg.Wait()
 	return result, nil
 }
 
