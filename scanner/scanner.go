@@ -33,6 +33,8 @@ func New() *Scanner {
 			&MavenParser{},
 			&GoModParser{},
 			&PipParser{},
+			&CargoParser{},
+			&PubspecParser{},
 		},
 	}
 }
@@ -126,6 +128,10 @@ func fetchLatestVersion(d Dependency) (string, error) {
 		return goLatest(d.Name)
 	case "pip":
 		return pipLatest(d.Name)
+	case "cargo":
+		return cargoLatest(d.Name)
+	case "pubspec":
+		return pubspecLatest(d.Name)
 	default:
 		return d.Version, nil
 	}
