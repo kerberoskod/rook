@@ -8,14 +8,16 @@
 ## Installation
 
 ```bash
-go install github.com/kerberoskod/rook@latest
+# Ensure you have Go 1.23+
+go install github.com/kerberoskod/rook@main
 ```
 
 Or build from source:
 
 ```bash
 git clone https://github.com/kerberoskod/rook.git
-cd rook && go build -o rook .
+cd rook
+go build -o rook .
 ```
 
 ## Usage
@@ -52,6 +54,12 @@ rook check --json
 | **Maven** | `pom.xml` |
 | **Go** | `go.mod` |
 | **pip** | `requirements.txt` |
+
+## Testing
+
+```bash
+go test ./... -v -count=1
+```
 
 ## License
 
