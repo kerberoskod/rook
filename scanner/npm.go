@@ -3,7 +3,6 @@ package scanner
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -13,6 +12,25 @@ type NPMParser struct{}
 func (n *NPMParser) Name() string { return "npm" }
 
 func (n *NPMParser) Glob() string { return "package.json" }
+
+func (n *NPMParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+		old := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Version)
+		new := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Latest)
+		content = strings.ReplaceAll(content, old, new)
+	}
+
+	return os.WriteFile(path, []byte(content), 0644)
+}
 
 func (n *NPMParser) Parse(path string) ([]Dependency, error) {
 	data, err := os.ReadFile(path)
@@ -32,13 +50,13 @@ func (n *NPMParser) Parse(path string) ([]Dependency, error) {
 	for name, ver := range pkg.Dependencies {
 		deps = append(deps, Dependency{
 			Name:    name,
-			Version: strings.TrimPrefix(ver, "^"),
+			Version: strings.TrimLeft(ver, "^~>=< "),
 		})
 	}
 	for name, ver := range pkg.DevDependencies {
 		deps = append(deps, Dependency{
 			Name:    name,
-			Version: strings.TrimPrefix(ver, "^"),
+			Version: strings.TrimLeft(ver, "^~>=< "),
 		})
 	}
 
@@ -47,7 +65,7 @@ func (n *NPMParser) Parse(path string) ([]Dependency, error) {
 
 func npmLatest(name string) (string, error) {
 	url := fmt.Sprintf("https://registry.npmjs.org/%s/latest", name)
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}

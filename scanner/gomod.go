@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -14,6 +13,25 @@ type GoModParser struct{}
 func (g *GoModParser) Name() string { return "go" }
 
 func (g *GoModParser) Glob() string { return "go.mod" }
+
+func (g *GoModParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+		old := d.Name + " " + d.Version
+		new := d.Name + " " + d.Latest
+		content = strings.ReplaceAll(content, old, new)
+	}
+
+	return os.WriteFile(path, []byte(content), 0644)
+}
 
 func (g *GoModParser) Parse(path string) ([]Dependency, error) {
 	f, err := os.Open(path)
@@ -64,7 +82,7 @@ func (g *GoModParser) Parse(path string) ([]Dependency, error) {
 
 func goLatest(name string) (string, error) {
 	url := fmt.Sprintf("https://proxy.golang.org/%s/@latest", name)
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}

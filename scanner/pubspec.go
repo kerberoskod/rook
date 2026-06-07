@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -14,6 +13,33 @@ type PubspecParser struct{}
 func (p *PubspecParser) Name() string { return "pubspec" }
 
 func (p *PubspecParser) Glob() string { return "pubspec.yaml" }
+
+func (p *PubspecParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, d.Name+":") {
+				val := strings.TrimSpace(strings.TrimPrefix(trimmed, d.Name+":"))
+				val = strings.Trim(val, ` "'`)
+				if val != "" && val != "^" {
+					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+					lines[i] = indent + d.Name + ": " + d.Latest
+				}
+			}
+		}
+	}
+
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
 
 func (p *PubspecParser) Parse(path string) ([]Dependency, error) {
 	f, err := os.Open(path)
@@ -79,7 +105,7 @@ func (p *PubspecParser) Parse(path string) ([]Dependency, error) {
 
 func pubspecLatest(name string) (string, error) {
 	url := fmt.Sprintf("https://pub.dev/api/packages/%s", name)
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}

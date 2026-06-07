@@ -15,6 +15,25 @@ func (c *CargoParser) Name() string { return "cargo" }
 
 func (c *CargoParser) Glob() string { return "Cargo.toml" }
 
+func (c *CargoParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+		old := d.Name + " = \"" + d.Version + "\""
+		new := d.Name + " = \"" + d.Latest + "\""
+		content = strings.ReplaceAll(content, old, new)
+	}
+
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
 func (c *CargoParser) Parse(path string) ([]Dependency, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -83,7 +102,7 @@ func cargoLatest(name string) (string, error) {
 	}
 	req.Header.Set("User-Agent", "rook-cli/1.0")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}

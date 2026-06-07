@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type Dependency struct {
@@ -24,6 +23,7 @@ type Parser interface {
 	Name() string
 	Glob() string
 	Parse(path string) ([]Dependency, error)
+	Update(path string, deps []Dependency) error
 }
 
 func New() *Scanner {
@@ -85,37 +85,46 @@ func (s *Scanner) CheckUpdates(deps []Dependency) ([]Dependency, error) {
 
 func (s *Scanner) ApplyUpdates(root string, deps []Dependency) error {
 	groups := make(map[string][]Dependency)
+	fileManager := make(map[string]string)
+
 	for _, d := range deps {
 		groups[d.File] = append(groups[d.File], d)
 	}
 
-	for file, deps := range groups {
+	parserByGlob := make(map[string]Parser)
+	for _, p := range s.parsers {
+		parserByGlob[p.Glob()] = p
+	}
+
+	for file, fileDeps := range groups {
 		rel := file
 		if !filepath.IsAbs(file) {
 			rel = filepath.Join(root, file)
 		}
-		if err := updateFile(rel, deps); err != nil {
+
+		base := filepath.Base(rel)
+		parser, ok := parserByGlob[base]
+		if !ok {
+			// fallback: find parser by suffix match
+			fileName := filepath.Base(rel)
+			for _, p := range s.parsers {
+				if matched, _ := filepath.Match(p.Glob(), fileName); matched {
+					parser = p
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return fmt.Errorf("no parser found for %s", rel)
+			}
+		}
+		fileManager[rel] = parser.Name()
+		if err := parser.Update(rel, fileDeps); err != nil {
 			return fmt.Errorf("failed to update %s: %w", rel, err)
 		}
 	}
 
 	return nil
-}
-
-func updateFile(path string, deps []Dependency) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	content := string(data)
-	for _, d := range deps {
-		old := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Version)
-		new := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Latest)
-		content = strings.ReplaceAll(content, old, new)
-	}
-
-	return os.WriteFile(path, []byte(content), 0644)
 }
 
 func fetchLatestVersion(d Dependency) (string, error) {

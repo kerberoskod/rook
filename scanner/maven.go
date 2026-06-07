@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type MavenParser struct{}
@@ -14,6 +14,26 @@ type MavenParser struct{}
 func (m *MavenParser) Name() string { return "maven" }
 
 func (m *MavenParser) Glob() string { return "pom.xml" }
+
+func (m *MavenParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+
+		old := fmt.Sprintf(`<version>%s</version>`, d.Version)
+		new := fmt.Sprintf(`<version>%s</version>`, d.Latest)
+		content = strings.ReplaceAll(content, old, new)
+	}
+
+	return os.WriteFile(path, []byte(content), 0644)
+}
 
 type pomXML struct {
 	XMLName    xml.Name `xml:"project"`
@@ -60,12 +80,12 @@ func mavenLatest(name string) (string, error) {
 		return "", fmt.Errorf("invalid maven coordinate: %s", name)
 	}
 
-	groupPath := url.PathEscape(stringsReplaceAll(parts[0], ".", "/"))
+	groupPath := url.PathEscape(strings.ReplaceAll(parts[0], ".", "/"))
 	artifact := url.PathEscape(parts[1])
 	url := fmt.Sprintf("https://search.maven.org/solrsearch/select?q=g:%s+AND+a:%s&rows=1&wt=json",
 		groupPath, artifact)
 
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}

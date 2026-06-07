@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -14,6 +13,28 @@ type PipParser struct{}
 func (p *PipParser) Name() string { return "pip" }
 
 func (p *PipParser) Glob() string { return "requirements.txt" }
+
+func (p *PipParser) Update(path string, deps []Dependency) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, d := range deps {
+		if d.Latest == "unknown" || d.Latest == "" {
+			continue
+		}
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, d.Name+"==") {
+				lines[i] = d.Name + "==" + d.Latest
+			}
+		}
+	}
+
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
 
 func (p *PipParser) Parse(path string) ([]Dependency, error) {
 	f, err := os.Open(path)
@@ -55,7 +76,7 @@ func (p *PipParser) Parse(path string) ([]Dependency, error) {
 
 func pipLatest(name string) (string, error) {
 	url := fmt.Sprintf("https://pypi.org/pypi/%s/json", name)
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", err
 	}

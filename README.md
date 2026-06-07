@@ -54,6 +54,8 @@ rook check --json
 | **Maven** | `pom.xml` |
 | **Go** | `go.mod` |
 | **pip** | `requirements.txt` |
+| **Cargo (Rust)** | `Cargo.toml` |
+| **Pubspec (Dart/Flutter)** | `pubspec.yaml` |
 
 ## Testing
 

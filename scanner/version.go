@@ -12,10 +12,5 @@ func normalizeVersion(v string) string {
 }
 
 func splitGroupArtifact(name string) []string {
-	parts := strings.Split(name, ":")
-	return parts
-}
-
-func stringsReplaceAll(s, old, new string) string {
-	return strings.ReplaceAll(s, old, new)
+	return strings.Split(name, ":")
 }
