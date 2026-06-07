@@ -11,7 +11,12 @@
 go install github.com/kerberoskod/rook@latest
 ```
 
-Or download a prebuilt binary from [releases](https://github.com/kerberoskod/rook/releases).
+Or build from source:
+
+```bash
+git clone https://github.com/kerberoskod/rook.git
+cd rook && go build -o rook .
+```
 
 ## Usage
 
