@@ -2,6 +2,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
+[![CI](https://github.com/kerberoskod/rook/actions/workflows/ci.yml/badge.svg)](https://github.com/kerberoskod/rook/actions/workflows/ci.yml)
+[![Release](https://github.com/kerberoskod/rook/actions/workflows/release.yml/badge.svg)](https://github.com/kerberoskod/rook/actions/workflows/release.yml)
 
 **Rook** scans your project files, checks dependency versions against registries, and helps you update them — all from the terminal.
 
