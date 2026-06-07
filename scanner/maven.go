@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 )
 
 type MavenParser struct{}
@@ -21,18 +20,38 @@ func (m *MavenParser) Update(path string, deps []Dependency) error {
 		return err
 	}
 
-	content := string(data)
+	var pom pomXML
+	if err := xml.Unmarshal(data, &pom); err != nil {
+		return err
+	}
+
+	depMap := make(map[string]string)
 	for _, d := range deps {
 		if d.Latest == "unknown" || d.Latest == "" {
 			continue
 		}
-
-		old := fmt.Sprintf(`<version>%s</version>`, d.Version)
-		new := fmt.Sprintf(`<version>%s</version>`, d.Latest)
-		content = strings.ReplaceAll(content, old, new)
+		depMap[d.Name] = d.Latest
 	}
 
-	return os.WriteFile(path, []byte(content), 0644)
+	changed := false
+	for i, dep := range pom.Dependencies {
+		key := fmt.Sprintf("%s:%s", dep.GroupID, dep.ArtifactID)
+		if latest, ok := depMap[key]; ok {
+			pom.Dependencies[i].Version = latest
+			changed = true
+		}
+	}
+
+	if !changed {
+		return nil
+	}
+
+	out, err := xml.MarshalIndent(pom, "", "  ")
+	if err != nil {
+		return err
+	}
+	out = append([]byte(`<?xml version="1.0" encoding="UTF-8"?>`+"\n"), out...)
+	return os.WriteFile(path, out, 0644)
 }
 
 type pomXML struct {
@@ -80,10 +99,10 @@ func mavenLatest(name string) (string, error) {
 		return "", fmt.Errorf("invalid maven coordinate: %s", name)
 	}
 
-	groupPath := url.PathEscape(strings.ReplaceAll(parts[0], ".", "/"))
-	artifact := url.PathEscape(parts[1])
+	group := url.QueryEscape(parts[0])
+	artifact := url.QueryEscape(parts[1])
 	url := fmt.Sprintf("https://search.maven.org/solrsearch/select?q=g:%s+AND+a:%s&rows=1&wt=json",
-		groupPath, artifact)
+		group, artifact)
 
 	resp, err := httpClient.Get(url)
 	if err != nil {

@@ -27,9 +27,29 @@ func (p *PipParser) Update(path string, deps []Dependency) error {
 		}
 		for i, line := range lines {
 			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, d.Name+"==") {
-				lines[i] = d.Name + "==" + d.Latest
+			if !strings.HasPrefix(trimmed, d.Name) {
+				continue
 			}
+			var sep string
+			for _, candidate := range []string{"==", ">=", "<=", "!=", "~="} {
+				if strings.Contains(trimmed, d.Name+candidate) {
+					sep = candidate
+					break
+				}
+			}
+			if sep == "" {
+				continue
+			}
+			prefix := d.Name + sep
+			idx := strings.Index(trimmed, prefix) + len(prefix)
+			rest := trimmed[idx:]
+			endIdx := strings.IndexAny(rest, " ;#\t")
+			if endIdx < 0 {
+				endIdx = len(rest)
+			}
+			before := line[:strings.Index(line, trimmed)+idx]
+			after := rest[endIdx:]
+			lines[i] = before + d.Latest + after
 		}
 	}
 
@@ -52,21 +72,23 @@ func (p *PipParser) Parse(path string) ([]Dependency, error) {
 			continue
 		}
 
-		parts := strings.Split(line, "==")
-		name := strings.TrimSpace(parts[0])
+		name := line
+		version := "*"
+		for _, sep := range []string{"==", ">=", "<=", "!=", "~="} {
+			if idx := strings.Index(line, sep); idx >= 0 {
+				name = strings.TrimSpace(line[:idx])
+				version = strings.TrimSpace(line[idx+len(sep):])
+				break
+			}
+		}
 		if idx := strings.Index(name, "["); idx >= 0 {
 			name = name[:idx]
 		}
 
-		if len(parts) == 2 {
+		if name != "" {
 			deps = append(deps, Dependency{
 				Name:    name,
-				Version: strings.TrimSpace(parts[1]),
-			})
-		} else if len(parts) == 1 && parts[0] != "" {
-			deps = append(deps, Dependency{
-				Name:    name,
-				Version: "*",
+				Version: version,
 			})
 		}
 	}

@@ -26,9 +26,15 @@ func (c *CargoParser) Update(path string, deps []Dependency) error {
 		if d.Latest == "unknown" || d.Latest == "" {
 			continue
 		}
-		old := d.Name + " = \"" + d.Version + "\""
-		new := d.Name + " = \"" + d.Latest + "\""
-		content = strings.ReplaceAll(content, old, new)
+		oldSimple := d.Name + ` = "` + d.Version + `"`
+		newSimple := d.Name + ` = "` + d.Latest + `"`
+		if strings.Contains(content, oldSimple) {
+			content = strings.ReplaceAll(content, oldSimple, newSimple)
+			continue
+		}
+		oldInline := `version = "` + d.Version + `"`
+		newInline := `version = "` + d.Latest + `"`
+		content = strings.ReplaceAll(content, oldInline, newInline)
 	}
 
 	return os.WriteFile(path, []byte(content), 0644)

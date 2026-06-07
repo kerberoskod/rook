@@ -24,9 +24,14 @@ func (n *NPMParser) Update(path string, deps []Dependency) error {
 		if d.Latest == "unknown" || d.Latest == "" {
 			continue
 		}
-		old := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Version)
-		new := fmt.Sprintf(`"%s": "%s"`, d.Name, d.Latest)
-		content = strings.ReplaceAll(content, old, new)
+		for _, prefix := range []string{"^", "~", ">=", "<=", ">", "<", "=", ""} {
+			old := fmt.Sprintf(`"%s": "%s%s"`, d.Name, prefix, d.Version)
+			new := fmt.Sprintf(`"%s": "%s%s"`, d.Name, prefix, d.Latest)
+			if strings.Contains(content, old) {
+				content = strings.ReplaceAll(content, old, new)
+				break
+			}
+		}
 	}
 
 	return os.WriteFile(path, []byte(content), 0644)

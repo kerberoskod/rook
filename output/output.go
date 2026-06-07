@@ -33,11 +33,7 @@ func PrintTable(deps []scanner.Dependency) error {
 	for _, d := range deps {
 		latest := d.Latest
 		if latest == "" {
-			if d.Outdated {
-				latest = "?"
-			} else {
-				latest = "✓"
-			}
+			latest = "?"
 		}
 
 		name := d.Name
