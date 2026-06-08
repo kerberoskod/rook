@@ -1,6 +1,7 @@
 # Rook — Dependency Migration CLI
 
 ![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)
+![Tests](https://img.shields.io/badge/6_tests-passing-228B22?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 **Rook** scans your project files, checks dependency versions against registries, and helps you update them — all from the terminal.
